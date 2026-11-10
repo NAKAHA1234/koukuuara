@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>航空会社アライアンス クイズ</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #1e3a8a;
+        }
+        .quiz-box {
+            display: none;
+            margin-bottom: 20px;
+        }
+        .start-box {
+            display: block;
+        }
+        .airline-name {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin: 25px 0;
+            color: #2563eb;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        button:hover {
+            background-color: #2563eb;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+        #result-message {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin: 15px 0;
+            min-height: 1.5em;
+        }
+        .correct {
+            color: #16a34a;
+        }
+        .incorrect {
+            color: #dc2626;
+        }
+        .score-board {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+        #next-btn {
+            background-color: #10b981;
+            display: none;
+            width: 100%;
+            margin-top: 15px;
+        }
+        #next-btn:hover {
+            background-color: #059669;
+        }
+        .restart-container {
+            display: none;
+        }
+        .setting-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .setting-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .setting-label input {
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 1rem;
+            background-color: #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>航空会社アライアンス クイズ</h1>
+
+        <!-- スタート画面（設定） -->
+        <div id="start-screen" class="start-box">
+            <p style="color: #64748b; margin-bottom: 20px;">クイズの設定を選んでください</p>
+            
+            <div class="setting-group">
+                <label for="question-count" style="display: block; margin-bottom: 8px; color: #1e3a8a; font-weight: bold; font-size: 0.95rem;">出題数</label>
+                <select id="question-count">
+                    <option value="5">5問</option>
+                    <option value="10" selected>10問</option>
+                    <option value="15">15問</option>
+                    <option value="20">20問</option>
+                    <option value="all">全問（可能な限りすべて）</option>
+                </select>
+            </div>
+
+            <div class="setting-group" style="margin-top: 25px;">
+                <label class="setting-label">
+                    <input type="checkbox" id="include-none" checked>
+                    「加盟していない」会社も含める
+                </label>
+            </div>
+
+            <button onclick="initQuiz()" style="width: 100%; margin-top: 10px;">クイズを始める</button>
+        </div>
+
+        <!-- クイズ画面 -->
+        <div id="quiz-container" class="quiz-box">
+            <div class="score-board">第 <span id="current-question">1</span> 問 / 全 <span id="total-questions">10</span> 問（スコア: <span id="score">0</span>）</div>
+            <p>この航空会社はどのアライアンスに加盟している？</p>
+            <div class="airline-name" id="airline-display">読み込み中...</div>
+            
+            <div id="result-message"></div>
+
+            <div class="options" id="options-container">
+                <!-- 選択肢はJavaScriptで動的に生成されます -->
+            </div>
+
+            <button id="next-btn" onclick="nextQuestion()">次の問題へ</button>
+        </div>
+
+        <!-- 結果画面 -->
+        <div id="restart-container" class="restart-container">
+            <h2>クイズ終了！</h2>
+            <p>正解数: <span id="final-score"></span> / <span id="final-total"></span></p>
+            <button onclick="returnToStart()">設定に戻る</button>
+        </div>
+    </div>
+
+    <script>
+        const quizData = [
+            { name: "全日本空輸 (ANA)", alliance: "スターアライアンス" },
+            { name: "エーゲ航空", alliance: "スターアライアンス" },
+            { name: "エア・カナダ", alliance: "スターアライアンス" },
+            { name: "中国国際航空(エア・チャイナ)", alliance: "スターアライアンス" },
+            { name: "エア・インディア", alliance: "スターアライアンス" },
+            { name: "ニュージーランド航空", alliance: "スターアライアンス" },
+            { name: "オーストリア航空", alliance: "スターアライアンス" },
+            { name: "アビアンカ航空", alliance: "スターアライアンス" },
+            { name: "ブリュッセル航空", alliance: "スターアライアンス" },
+            { name: "コパ航空", alliance: "スターアライアンス" },
+            { name: "クロアチア航空", alliance: "スターアライアンス" },
+            { name: "エジプト航空", alliance: "スターアライアンス" },
+            { name: "エチオピア航空", alliance: "スターアライアンス" },
+            { name: "エバー航空", alliance: "スターアライアンス" },
+            { name: "ITAエアウェイズ", alliance: "スターアライアンス" },
+            { name: "LOTポーランド航空", alliance: "スターアライアンス" },
+            { name: "ルフトハンザドイツ航空", alliance: "スターアライアンス" },
+            { name: "シンセン航空", alliance: "スターアライアンス" },
+            { name: "シンガポール航空", alliance: "スターアライアンス" },
+            { name: "南アフリカ航空", alliance: "スターアライアンス" },
+            { name: "スイス インターナショナル", alliance: "スターアライアンス" },
+            { name: "TAPポルトガル航空", alliance: "スターアライアンス" },
+            { name: "タイ国際航空", alliance: "スターアライアンス" },
+            { name: "ターキッシュエアラインズ", alliance: "スターアライアンス" },
+            { name: "ユナイテッド航空", alliance: "スターアライアンス" },
+
+            { name: "アラスカ航空", alliance: "ワンワールド" },
+            { name: "アメリカン航空", alliance: "ワンワールド" },
+            { name: "ブリティッシュ・エアウェイズ", alliance: "ワンワールド" },
+            { name: "キャセイパシフィック航空", alliance: "ワンワールド" },
+            { name: "フィジーエアウェイズ", alliance: "ワンワールド" },
+            { name: "フィンエアー", alliance: "ワンワールド" },
+            { name: "イベリア航空", alliance: "ワンワールド" },
+            { name: "日本航空 (JAL)", alliance: "ワンワールド" },
+            { name: "マレーシア航空", alliance: "ワンワールド" },
+            { name: "オマーン航空", alliance: "ワンワールド" },
+            { name: "カンタス航空", alliance: "ワンワールド" },
+            { name: "カタール航空", alliance: "ワンワールド" },
+            { name: "ロイヤルヨルダン航空", alliance: "ワンワールド" },
+            { name: "S7航空(2026.11現在は停止)", alliance: "ワンワールド" },
+            { name: "スリランカ航空", alliance: "ワンワールド" },
+            { name: "ロイヤル・エア・モロッコ", alliance: "ワンワールド" },
+
+            { name: "アルゼンチン航空", alliance: "スカイチーム" },
+            { name: "アエロメヒコ(Aeromexico)航空", alliance: "スカイチーム" },
+            { name: "デルタ航空", alliance: "スカイチーム" },
+            { name: "エールフランス", alliance: "スカイチーム" },
+            { name: "KLMオランダ航空", alliance: "スカイチーム" },
+            { name: "大韓航空", alliance: "スカイチーム" },
+            { name: "中国東方航空", alliance: "スカイチーム" },
+            { name: "アモイ航空", alliance: "スカイチーム" },
+            { name: "エア・ヨーロッパ", alliance: "スカイチーム" },
+            { name: "チャイナエアライン(中華航空)", alliance: "スカイチーム" },
+            { name: "ガルーダ・インドネシア航空", alliance: "スカイチーム" },
+            { name: "ケニア航空", alliance: "スカイチーム" },
+            { name: "ミドル・イースト航空", alliance: "スカイチーム" },
+            { name: "サウディア", alliance: "スカイチーム" },
+            { name: "スカンジナビア航空", alliance: "スカイチーム" },
+            { name: "タロム航空", alliance: "スカイチーム" },
+            { name: "ベトナム航空", alliance: "スカイチーム" },
+            { name: "ヴァージンアトランティック航空", alliance: "スカイチーム" },
+
+            { name: "中国南方航空", alliance: "加盟していない" },
+            { name: "海南航空", alliance: "加盟していない" },
+            { name: "春秋航空", alliance: "加盟していない" },
+            { name: "ジェットスター航空", alliance: "加盟していない" },
+            { name: "エアアジア", alliance: "加盟していない" },
+            { name: "ジェットブルー航空", alliance: "加盟していない" },
+            { name: "サウスウエスト航空", alliance: "加盟していない" },
+            { name: "ライアンエアー", alliance: "加盟していない" },
+            { name: "ノルウェージャン・エアシャトル", alliance: "加盟していない" },
+            { name: "ヴァージン・オーストラリア", alliance: "加盟していない" },
+            { name: "エミレーツ航空", alliance: "加盟していない" },
+            { name: "エティハド航空", alliance: "加盟していない" },
+            { name: "カタール航空", alliance: "加盟していない" },
+            { name: "アシアナ航空", alliance: "加盟していない" },
+            { name: "アリタリア航空", alliance: "加盟していない" },
+            { name: "エア・カナダ・ルージュ", alliance: "加盟していない" },
+            { name: "エア・トランザット", alliance: "加盟していない" },
+            { name: "エア・ニュージーランド", alliance: "加盟していない" }
+        ];
+
+        let currentQuestions = [];
+        let currentIndex = 0;
+        let score = 0;
+        let autoNextTimer = null;
+        let activeOptions = [];
+
+        function returnToStart() {
+            document.getElementById('restart-container').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'block';
+        }
+
+        function initQuiz() {
+            const includeNone = document.getElementById('include-none').checked;
+            const countValue = document.getElementById('question-count').value;
+
+            // 設定に応じて問題データをフィルタリング
+            let filteredData = quizData;
+            if (!includeNone) {
+                filteredData = quizData.filter(item => item.alliance !== "加盟していない");
+            }
+
+            // 選択肢の配列を設定
+            if (includeNone) {
+                activeOptions = ["スターアライアンス", "ワンワールド", "スカイチーム", "加盟していない"];
+            } else {
+                activeOptions = ["スターアライアンス", "ワンワールド", "スカイチーム"];
+            }
+
+            // 出題数の決定
+            let questionLimit = filteredData.length;
+            if (countValue !== "all") {
+                questionLimit = Math.min(parseInt(countValue, 10), filteredData.length);
+            }
+
+            currentQuestions = [...filteredData].sort(() => 0.5 - Math.random()).slice(0, questionLimit);
+            currentIndex = 0;
+            score = 0;
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('quiz-container').style.display = 'block';
+            
+            showQuestion();
+        }
+
+        function showQuestion() {
+            if (autoNextTimer) clearTimeout(autoNextTimer);
+
+            const q = currentQuestions[currentIndex];
+            document.getElementById('airline-display').textContent = q.name;
+            document.getElementById('current-question').textContent = currentIndex + 1;
+            document.getElementById('total-questions').textContent = currentQuestions.length;
+            document.getElementById('score').textContent = score;
+            document.getElementById('result-message').textContent = '';
+            document.getElementById('result-message').className = '';
+            document.getElementById('next-btn').style.display = 'none';
+
+            // 選択肢ボタンを動的に生成
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            activeOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.textContent = opt;
+                btn.onclick = () => checkAnswer(opt);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedAlliance) {
+            const q = currentQuestions[currentIndex];
+            const resultMsg = document.getElementById('result-message');
+            const buttons = document.querySelectorAll('#options-container button');
+
+            buttons.forEach(btn => btn.disabled = true);
+
+            const isCorrect = selectedAlliance === q.alliance;
+
+            if (isCorrect) {
+                score++;
+                resultMsg.textContent = `正解！ (${q.name} は ${q.alliance} です)`;
+                resultMsg.className = 'correct';
+            } else {
+                resultMsg.textContent = `不正解… (${q.name} は ${q.alliance} です)`;
+                resultMsg.className = 'incorrect';
+            }
+
+            document.getElementById('score').textContent = score;
+
+            const isLastQuestion = currentIndex === currentQuestions.length - 1;
+
+            if (isCorrect) {
+                autoNextTimer = setTimeout(() => {
+                    if (isLastQuestion) {
+                        showResult();
+                    } else {
+                        nextQuestion();
+                    }
+                }, 1000);
+            } else {
+                if (isLastQuestion) {
+                    document.getElementById('next-btn').textContent = '結果を見る';
+                } else {
+                    document.getElementById('next-btn').textContent = '次の問題へ';
+                }
+                document.getElementById('next-btn').style.display = 'block';
+            }
+        }
+
+        function nextQuestion() {
+            if (currentIndex < currentQuestions.length - 1) {
+                currentIndex++;
+                showQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        function showResult() {
+            document.getElementById('quiz-container').style.display = 'none';
+            document.getElementById('restart-container').style.display = 'block';
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('final-total').textContent = currentQuestions.length;
+        }
+    </script>
+</body>
+</html>
